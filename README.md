@@ -1,58 +1,47 @@
 # Autonomous Warehouse Delivery Robot: Discrete Pathfinding Search Algorithms
 
-An academic implementation and comparative evaluation of discrete graph search algorithms for an autonomous mobile robot navigating weighted warehouse floor grids. The project implements Uniform Cost Search (UCS) and A* Search with the Manhattan distance heuristic from scratch in Python, evaluating path optimality, state exploration, memory usage, and runtime across standard benchmark layouts.
+Implementation, empirical benchmarking, and comparative evaluation of Uniform Cost Search (UCS) and A* Search with the Manhattan distance heuristic for an autonomous mobile robot on weighted warehouse grids.
 
-## Project Overview
+## Problem Overview
 
-In an automated warehouse fulfillment center, a delivery robot transports goods from a starting dock to a designated destination while navigating obstacles and non-uniform surface friction. Because different terrain types incur different movement costs, the shortest route in terms of step count is not necessarily the cheapest route in terms of traversal cost. This project analyzes how uninformed and informed search algorithms handle this cost-distance tradeoff.
+In an automated warehouse fulfillment facility, autonomous mobile robots navigate between loading docks and destination stations across structured grid corridors. Real-world warehouse floors feature obstacles and varying surface conditions that impose non-uniform traversal costs. In such environments, the path with the fewest steps is not necessarily the lowest-cost path.
 
-## Key Features
-
-- Discrete 2D grid graph search implemented without third-party pathfinding libraries.
-- Uninformed Uniform Cost Search (UCS) guaranteeing cost-optimal paths for positive edge weights.
-- Informed A* Search with an admissible and consistent Manhattan distance heuristic ($L_1$ norm).
-- Dynamic grid parsing and start/goal detection without hardcoded coordinates.
-- Rigorous path verification validating coordinate continuity, obstacle avoidance, and cost calculations.
-- Integrated ASCII trajectory rendering and Matplotlib visualization.
-- Empirical benchmarking across solvable maps, cost-trap layouts, and provably unsolvable barrier maps.
+This project implements graph search algorithms from scratch in Python to compute cost-optimal trajectories, evaluate state space exploration, and analyze algorithmic efficiency across standard benchmark maps.
 
 ## Grid and Cost Model
 
-The warehouse environment is modeled as a 4-connected discrete grid with orthogonal movements: Up $(-1, 0)$, Down $(+1, 0)$, Left $(0, -1)$, and Right $(0, +1)$. Diagonal motion is prohibited.
+The warehouse is formalized as a discrete 2D grid with 4-connected orthogonal movements: Up $(-1, 0)$, Down $(+1, 0)$, Left $(0, -1)$, and Right $(0, +1)$. Diagonal transitions are prohibited.
 
 | Symbol | Cell Meaning | Transition Cost |
 | :--- | :--- | :--- |
-| `S` | Start loading dock | 0 (initial state, not counted in traversal) |
-| `G` | Goal delivery dock | 1 (entering docking cell) |
-| `.` | Normal floor tile | 1 |
-| `~` | Rough floor patch | 3 (elevated friction) |
-| `#` | Structural wall barrier | Impassable (infinite cost) |
+| `S` | Start loading dock | 0 (initial position; not counted in traversal cost) |
+| `G` | Goal delivery dock | 1 (entering destination cell) |
+| `.` | Normal floor tile | 1 (standard concrete surface) |
+| `~` | Rough floor patch | 3 (elevated friction / debris zone) |
+| `#` | Structural obstacle | Impassable (wall barrier) |
 
-Step costs apply strictly upon entering each cell.
+Movement costs are incurred strictly upon **entering** each cell.
 
-## Implemented Search Algorithms
+## Implemented Algorithms
 
-### 1. Uniform Cost Search (UCS)
-Uniform Cost Search is an uninformed graph search strategy. While standard Breadth-First Search assumes uniform edge costs and expands nodes by step depth, UCS systematically selects and expands the node with the lowest cumulative path cost $g(n)$ from the start state. Priority queue entries are ordered by $g(n)$, and the goal condition is evaluated when a state is popped from the queue, ensuring cost-optimality when all step costs are positive ($c \ge 1$).
+### 1. Uniform Cost Search (UCS) — Uninformed Search
+Uniform Cost Search explores the state space in order of cumulative path cost $g(n)$ from the start state. While standard Breadth-First Search assumes uniform edge costs and measures depth in steps, UCS utilizes a priority queue ordered by $g(n)$. The goal test is performed upon removing a node from the priority queue, guaranteeing a cost-optimal solution for arbitrary positive edge costs ($c \ge 1$).
 
-### 2. A* Search (with Manhattan Distance)
-A* Search is an informed graph search strategy that combines the exact historical path cost $g(n)$ with a forward-looking heuristic estimate $h(n)$ of the remaining distance to the goal:
+### 2. A* Search — Informed Search with Manhattan Distance
+A* Search guides state exploration toward the goal by evaluating nodes using:
 $$f(n) = g(n) + h(n)$$
+where $g(n)$ is the exact accumulated cost from the start to node $n$, and $h(n)$ is the estimated remaining cost from node $n$ to the goal.
 
-For 4-connected grid navigation, we use the Manhattan distance ($L_1$ norm):
+For 4-directional grid movement, we use the Manhattan distance ($L_1$ norm):
 $$h(n) = |r_n - r_G| + |c_n - c_G|$$
 
-Because every grid transition costs at least 1 ($c_{\min} = 1$), Manhattan distance represents a true lower bound on obstacle-free travel. The heuristic is both admissible ($h(n) \le h^*(n)$) and consistent ($|h(n) - h(n')| \le 1 \le c(n, n')$), guaranteeing that A* returns an optimal path without reopening closed states.
-
-## Benchmark Environments
-
-1. **MAP_A (Standard Warehouse Layout, 5x8):** Contains structural wall blocks and localized rough terrain patches.
-2. **MAP_B (Cost vs. Step Count Trap, 5x9):** Contains a direct rough-floor corridor (Row 0) and a longer clean-floor detour (Row 2).
-3. **MAP_C (Unsolvable Barrier Map, 5x8):** Contains an unbroken vertical obstacle wall across Column 3 that completely isolates the goal from the start.
+Because every reachable cell transition costs at least 1 ($c_{\min} = 1$), Manhattan distance represents a true geometric lower bound on obstacle-free travel. The heuristic is:
+- **Admissible:** $h(n) \le h^*(n)$ for all states $n$, ensuring that A* returns an optimal path.
+- **Consistent:** $|h(n) - h(n')| \le 1 \le c(n, n')$ for adjacent states $n$ and $n'$, guaranteeing that $f$-values never decrease along a path and nodes do not require reopening once closed.
 
 ## Benchmark Results
 
-The table below summarizes the verified performance metrics across all three maps:
+The table below presents the verified benchmark metrics across all three test maps:
 
 | Map | Algorithm | Status | Path Length (Moves) | Path Cost | Nodes Expanded | Max Frontier Size | Runtime (ms) |
 | :--- | :--- | :--- | :---: | :---: | :---: | :---: | :---: |
@@ -63,12 +52,80 @@ The table below summarizes the verified performance metrics across all three map
 | **MAP_C** | Uniform Cost Search (UCS) | No path found | N/A | N/A | 13 | 3 | 0.041 |
 | **MAP_C** | A* Search | No path found | N/A | N/A | 13 | 3 | 0.099 |
 
-### Analysis of Key Findings
+## Visual Results and Path Layouts
 
-- **MAP_B Step Count vs. Cost Tradeoff:** Taking the direct rough corridor along Row 0 requires only 8 moves but crosses 7 rough tiles, resulting in a total cost of $7 \times 3 + 1 = 22$. Taking the clean floor detour around the wall via Row 2 requires 12 moves but only costs $11 \times 1 + 1 = 12$. Both UCS and A* correctly prioritize cumulative cost over move count and choose the 12-move route.
-- **MAP_C Unsolvable Termination:** Because Column 3 is completely blocked by walls, only 13 nodes are reachable from the start dock. Both UCS and A* exhaustively explore all 13 reachable states, empty their priority queues, and terminate gracefully with the exact status `No path found`.
-- **Search Efficiency Comparison:** On solvable maps (`MAP_A` and `MAP_B`), both algorithms return identical, cost-optimal paths. However, A* reduces node expansions by 25.0% on `MAP_A` (21 vs. 28) and by 51.6% on `MAP_B` (15 vs. 31) due to heuristic goal-directed pruning. Peak frontier size for A* is slightly larger on solvable maps (5 vs. 4 on `MAP_A`, 7 vs. 4 on `MAP_B`), reflecting the expected tradeoff of queuing promising forward neighbors earlier.
-- **Algorithm Recommendation:** A* Search is recommended for this warehouse robot deployment on these benchmark environments because it delivers identical path cost-optimality while exploring significantly fewer states.
+### MAP_A: Standard Warehouse Layout (5x8)
+`MAP_A` features structural wall pillars and localized rough patches at `(2,4)`, `(2,5)`, and `(4,3)`.
+
+Both algorithms find the optimal 11-move trajectory from `(0,0)` to `(4,7)`. The cost arithmetic is:
+$$8 \text{ normal tiles } (\times 1) + 2 \text{ rough tiles } (\times 3) + 1 \text{ goal tile } (\times 1) = 8 + 6 + 1 = 15$$
+
+| Uniform Cost Search (28 Expanded) | A* Search (21 Expanded) |
+| :---: | :---: |
+| ![MAP_A UCS Trajectory](images/map_a_ucs.png) | ![MAP_A A* Trajectory](images/map_a_astar.png) |
+
+*A\* achieves a 25.0% reduction in node expansions (21 vs. 28) by directing exploration toward the goal dock.*
+
+---
+
+### MAP_B: Step Count vs. Traversal Cost Tradeoff (5x9)
+`MAP_B` is specifically designed to evaluate whether search algorithms distinguish between shortest distance in moves and lowest total path cost.
+
+```text
+S~~~~~~~G
+.#######.
+.........
+.#.#.#.#.
+.........
+```
+
+#### Route Comparison:
+1. **Direct Rough Corridor (Row 0):** Requires only **8 moves**, but crosses 7 rough tiles ($7 \times 3$) plus the goal ($1$), giving a total cost of **22**.
+2. **Clean Detour Corridor (Row 2):** Requires **12 moves** around the central wall, but traverses 11 clean tiles ($11 \times 1$) plus the goal ($1$), giving a total cost of **12**.
+
+| Uniform Cost Search (31 Expanded) | A* Search (15 Expanded) |
+| :---: | :---: |
+| ![MAP_B UCS Trajectory](images/map_b_ucs.png) | ![MAP_B A* Trajectory](images/map_b_astar.png) |
+
+*Both algorithms correctly identify that Cost 12 < 22 and choose the 12-move detour. A\* requires 51.6% fewer expansions (15 vs. 31) to verify this optimal path.*
+
+---
+
+### MAP_C: Unsolvable Barrier Map (5x8)
+`MAP_C` contains an unbroken wall barrier across Column 3 from Row 0 to Row 3, with the only lower opening at `(4,3)` blocked by a wall at `(4,4)`.
+
+```text
+S..#....
+.#.#.##.
+...#..#.
+.###.##.
+....#..G
+```
+
+| Uniform Cost Search (13 Expanded) | A* Search (13 Expanded) |
+| :---: | :---: |
+| ![MAP_C UCS Termination](images/map_c_ucs.png) | ![MAP_C A* Termination](images/map_c_astar.png) |
+
+*The start dock is isolated within a 13-cell reachable component. Both algorithms systematically visit all 13 reachable nodes, exhaust their priority queues, and terminate gracefully with the exact status `No path found`.*
+
+---
+
+### Search Performance Comparison
+
+![Benchmark Comparison](images/benchmark_comparison.png)
+
+## Comparative Analysis and Discussion
+
+1. **Path Cost Optimality:** Both algorithms return identical, mathematically optimal paths on all solvable maps (Cost 15 on `MAP_A`, Cost 12 on `MAP_B`).
+2. **Search Efficiency (Nodes Expanded):** A* expands significantly fewer nodes on solvable layouts (21 vs. 28 on `MAP_A`; 15 vs. 31 on `MAP_B`). The Manhattan heuristic effectively prunes exploratory branches that lead away from the target.
+3. **Memory Footprint (Max Frontier Size):** Peak frontier size for A* is slightly larger on solvable maps (5 vs. 4 on `MAP_A`, 7 vs. 4 on `MAP_B`). Because A* prioritizes promising directional neighbors early, it places multiple forward candidates into the queue simultaneously.
+4. **Execution Runtime:** On grids of this scale ($5 \times 8$ and $5 \times 9$), runtimes are fractions of a millisecond ($< 0.25\text{ ms}$). Microsecond differences reflect system background load rather than fundamental computational scaling; node expansion count provides the authoritative measure of search effort.
+
+## Algorithm Selection
+
+Based on the empirical benchmark results:
+- **A* Search with Manhattan distance** is the recommended choice for this warehouse robot deployment. It guarantees the exact same path cost optimality as UCS while reducing state expansions by 25.0% to 51.6% on solvable layouts.
+- In larger warehouse facilities with hundreds or thousands of grid cells, this expansion reduction translates directly to lower computational overhead and faster real-time trajectory replanning.
 
 ## Project Structure
 
@@ -76,38 +133,53 @@ The table below summarizes the verified performance metrics across all three map
 .
 ├── Warehouse_Delivery_Robot_Search_Algorithms.ipynb
 ├── README.md
-└── .gitignore
+├── .gitignore
+└── images/
+    ├── map_a_ucs.png
+    ├── map_a_astar.png
+    ├── map_b_ucs.png
+    ├── map_b_astar.png
+    ├── map_c_ucs.png
+    ├── map_c_astar.png
+    ├── benchmark_comparison.png
+    ├── nodes_expanded_comparison.png
+    └── frontier_size_comparison.png
 ```
 
-The Jupyter Notebook is the single self-contained project artifact containing the complete Python source code, data structures, algorithms, benchmark execution runs, summary tables, and rendered visualization figures.
+## Dependencies
 
-## Prerequisites and Installation
-
-The project requires Python 3.9+ and standard data science libraries:
+The project uses Python 3.9+ with standard scientific libraries:
 
 ```bash
 pip install pandas matplotlib numpy jupyter
 ```
 
-Standard library modules utilized: `heapq`, `time`, `dataclasses`, `typing`.
+Standard library modules used: `heapq`, `time`, `dataclasses`, `typing`. No third-party pathfinding libraries are used.
 
 ## How to Run the Notebook
 
-1. Clone the repository:
+1. **Clone the repository:**
    ```bash
    git clone https://github.com/shaheenmohammedsh-ops/warehouse-delivery-robot-search-algorithms.git
    cd warehouse-delivery-robot-search-algorithms
    ```
 
-2. Launch Jupyter Notebook or JupyterLab:
+2. **Launch Jupyter:**
    ```bash
    jupyter notebook Warehouse_Delivery_Robot_Search_Algorithms.ipynb
    ```
 
-3. Execute cells sequentially using **Cell -> Run All** or `Shift + Enter`.
+3. **Execute:**
+   Run all cells sequentially (**Kernel -> Restart & Run All**).
 
-4. **Single-Map Testing:** To test an individual map independently, change `GRID = MAP_B` or `GRID = MAP_C` in Section 3 and execute Section 9.1 (Configurable Single-Map Demonstration).
+4. **Single-Map Testing:**
+   To test an individual map independently, modify `GRID = MAP_B` or `GRID = MAP_C` in Section 3 and execute Section 9.1 (Configurable Single-Map Demonstration).
+
+## Open the Full Analysis
+
+The complete code, detailed derivations, assertion checks, summary tables, and interactive demonstrations are available in the authoritative notebook:
+- [`Warehouse_Delivery_Robot_Search_Algorithms.ipynb`](Warehouse_Delivery_Robot_Search_Algorithms.ipynb)
 
 ## Repository
 
-- **GitHub:** [https://github.com/shaheenmohammedsh-ops/warehouse-delivery-robot-search-algorithms](https://github.com/shaheenmohammedsh-ops/warehouse-delivery-robot-search-algorithms)
+- **GitHub Repository:** [https://github.com/shaheenmohammedsh-ops/warehouse-delivery-robot-search-algorithms](https://github.com/shaheenmohammedsh-ops/warehouse-delivery-robot-search-algorithms)
